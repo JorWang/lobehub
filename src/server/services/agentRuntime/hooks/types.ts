@@ -7,7 +7,12 @@
 
 import type { AgentHookEvent, AgentHookType } from '@lobechat/agent-runtime';
 
-export type { AgentHookEvent, AgentHookType } from '@lobechat/agent-runtime';
+export type {
+  AfterToolCallHookEvent,
+  AgentHookEvent,
+  AgentHookType,
+  ToolCallHookEvent,
+} from '@lobechat/agent-runtime';
 
 // ── Server-side Hook Types ───────────────────────────────
 

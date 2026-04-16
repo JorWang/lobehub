@@ -9,6 +9,7 @@ import type {
   AgentHookType,
   AgentHookWebhook,
   SerializedHook,
+  ToolCallHookEvent,
 } from './types';
 
 const log = debug('lobe-server:hook-dispatcher');
@@ -146,6 +147,39 @@ export class HookDispatcher {
         }
       }
     }
+  }
+
+  /**
+   * Dispatch beforeToolCall hooks with mock support.
+   * Returns mock result if any handler called event.mock(), otherwise null.
+   */
+  async dispatchBeforeToolCall(
+    operationId: string,
+    event: Omit<ToolCallHookEvent, 'mock' | 'operationId'>,
+  ): Promise<{ content: string } | null> {
+    const hooks = this.hooks.get(operationId)?.filter((h) => h.type === 'beforeToolCall') || [];
+    if (hooks.length === 0) return null;
+
+    let mockResult: { content: string } | null = null;
+
+    const toolCallEvent: ToolCallHookEvent = {
+      ...event,
+      mock: (result) => {
+        mockResult = result;
+      },
+      operationId,
+    };
+
+    for (const hook of hooks) {
+      try {
+        log('[%s][beforeToolCall] Dispatching: %s', operationId, hook.id);
+        await hook.handler(toolCallEvent as any);
+      } catch (error) {
+        log('[%s][beforeToolCall] Hook error (non-fatal): %s %O', operationId, hook.id, error);
+      }
+    }
+
+    return mockResult;
   }
 
   /**

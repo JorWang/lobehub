@@ -1470,6 +1470,7 @@ export class AgentRuntimeService {
       discordContext: metadata?.discordContext,
       userTimezone: metadata?.userTimezone,
       evalContext: metadata?.evalContext,
+      hookDispatcher,
       loadAgentState: this.coordinator.loadAgentState.bind(this.coordinator),
       messageModel: this.messageModel,
       operationId,

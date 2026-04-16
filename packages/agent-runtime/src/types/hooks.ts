@@ -11,7 +11,9 @@
  */
 export type AgentHookType =
   | 'afterStep' // After each step completes
+  | 'afterToolCall' // After a tool call completes (observation only)
   | 'beforeStep' // Before each step executes
+  | 'beforeToolCall' // Before a tool call executes (supports mocking via event.mock())
   | 'onComplete' // Operation reaches terminal state (done/error/interrupted)
   | 'onError'; // Error during execution
 
@@ -89,4 +91,34 @@ export interface AgentHookEvent {
   totalToolCalls?: number;
 
   userId: string;
+}
+
+/**
+ * Event payload for beforeToolCall hooks.
+ * Call `mock()` to skip real tool execution and return a fake result.
+ */
+export interface ToolCallHookEvent {
+  apiName: string;
+  args: Record<string, any>;
+  callIndex: number;
+  identifier: string;
+  mock: (result: { content: string }) => void;
+  operationId: string;
+  stepIndex: number;
+}
+
+/**
+ * Event payload for afterToolCall hooks (observation only).
+ */
+export interface AfterToolCallHookEvent {
+  apiName: string;
+  args: Record<string, any>;
+  callIndex: number;
+  content: string;
+  executionTimeMs: number;
+  identifier: string;
+  mocked: boolean;
+  operationId: string;
+  stepIndex: number;
+  success: boolean;
 }
