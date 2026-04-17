@@ -456,15 +456,19 @@ function scheduleProactiveRefresh(
 
   async function doRefresh() {
     try {
-      const result = await getValidToken();
+      // Use the same buffer so getValidToken actually triggers a refresh
+      const result = await getValidToken(PROACTIVE_REFRESH_BUFFER);
       if (!result) {
         error('Proactive token refresh failed — no valid credentials.');
         return;
       }
 
       const refreshed = await resolveToken({});
-      info('Proactively refreshed token.');
-      onRefreshed(refreshed);
+      // Only notify if the token actually changed to avoid reschedule loops
+      if (refreshed.token !== auth.token) {
+        info('Proactively refreshed token.');
+        onRefreshed(refreshed);
+      }
     } catch {
       error('Proactive token refresh failed.');
     }
