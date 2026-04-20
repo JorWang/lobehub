@@ -86,6 +86,11 @@ export interface ChatInputProps {
    */
   rightActions?: ActionKeys[];
   /**
+   * Custom node to render in place of the default RuntimeConfig bar
+   * (Local/Cloud/Approval). When provided, replaces the default bar.
+   */
+  runtimeConfigSlot?: ReactNode;
+  /**
    * Custom content to render before the SendArea (right side of action bar)
    */
   sendAreaPrefix?: ReactNode;
@@ -119,10 +124,11 @@ const ChatInput = memo<ChatInputProps>(
     allowExpand,
     leftActions = [],
     leftContent,
-    rightActions = ['promptTransform'],
+    rightActions = [],
     children,
     extraActionItems,
     mentionItems,
+    runtimeConfigSlot,
     sendMenu,
     sendAreaPrefix,
     sendButtonProps: customSendButtonProps,
@@ -263,6 +269,7 @@ const ChatInput = memo<ChatInputProps>(
               borderRadius={12}
               extraActionItems={extraActionItems}
               leftContent={leftContent}
+              runtimeConfigSlot={runtimeConfigSlot}
               sendAreaPrefix={sendAreaPrefix}
               showRuntimeConfig={showRuntimeConfig}
             />
