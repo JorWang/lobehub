@@ -1122,6 +1122,19 @@ export const createRuntimeExecutors = (
         };
       }
 
+      // Dispatch beforeCompact hook
+      if (ctx.hookDispatcher) {
+        ctx.hookDispatcher
+          .dispatch(operationId, 'beforeCompact', {
+            messageCount: messagesToCompress.length,
+            operationId,
+            stepIndex,
+            tokenCount: currentTokenCount,
+            userId: ctx.userId || '',
+          } as any)
+          .catch(() => {});
+      }
+
       try {
         const dbMessages = await ctx.messageModel.query(
           {
@@ -1290,6 +1303,21 @@ export const createRuntimeExecutors = (
           type: 'compression_complete',
         });
 
+        // Dispatch afterCompact hook
+        if (ctx.hookDispatcher) {
+          ctx.hookDispatcher
+            .dispatch(operationId, 'afterCompact', {
+              groupId: compressionResult.messageGroupId,
+              messagesAfter: compressedMessages.length,
+              messagesBefore: messagesToCompress.length,
+              operationId,
+              stepIndex,
+              summary: summaryContent.slice(0, 500),
+              userId: ctx.userId || '',
+            } as any)
+            .catch(() => {});
+        }
+
         return {
           events,
           newState,
@@ -1314,6 +1342,19 @@ export const createRuntimeExecutors = (
           currentTokenCount,
           error,
         );
+
+        // Dispatch onCompactError hook
+        if (ctx.hookDispatcher) {
+          ctx.hookDispatcher
+            .dispatch(operationId, 'onCompactError', {
+              error: error instanceof Error ? error.message : String(error),
+              operationId,
+              stepIndex,
+              tokenCount: currentTokenCount,
+              userId: ctx.userId || '',
+            } as any)
+            .catch(() => {});
+        }
 
         events.push({ error, type: 'compression_error' });
 
@@ -1701,6 +1742,22 @@ export const createRuntimeExecutors = (
         // running the agent on a broken conversation chain. See LOBE-7158.
         if (isPersistFatal(error)) throw error;
 
+        // Dispatch onToolCallError hook
+        if (ctx.hookDispatcher) {
+          ctx.hookDispatcher
+            .dispatch(operationId, 'onToolCallError', {
+              apiName: chatToolPayload.apiName,
+              args: parsedArgs,
+              callIndex,
+              error: error instanceof Error ? error.message : String(error),
+              identifier: chatToolPayload.identifier,
+              operationId,
+              stepIndex,
+              userId: ctx.userId || '',
+            } as any)
+            .catch(() => {});
+        }
+
         // Publish tool execution error event
         await streamManager.publishStreamEvent(operationId, {
           data: formatErrorEventData(error, 'tool_execution'),
@@ -2003,6 +2060,22 @@ export const createRuntimeExecutors = (
               throw error;
             }
 
+            // Dispatch onToolCallError hook
+            if (ctx.hookDispatcher) {
+              ctx.hookDispatcher
+                .dispatch(operationId, 'onToolCallError', {
+                  apiName: chatToolPayload.apiName,
+                  args: batchParsedArgs,
+                  callIndex: batchCallIndex,
+                  error: error instanceof Error ? error.message : String(error),
+                  identifier: chatToolPayload.identifier,
+                  operationId,
+                  stepIndex,
+                  userId: ctx.userId || '',
+                } as any)
+                .catch(() => {});
+            }
+
             console.error(`[${operationLogId}] Tool execution failed for ${toolName}:`, error);
 
             // Publish error event
@@ -2235,6 +2308,21 @@ export const createRuntimeExecutors = (
         stepIndex,
         type: 'step_start',
       });
+
+      // Dispatch beforeHumanIntervention hook
+      if (ctx.hookDispatcher) {
+        ctx.hookDispatcher
+          .dispatch(operationId, 'beforeHumanIntervention', {
+            operationId,
+            pendingTools: pendingToolsCalling.map((t: any) => ({
+              apiName: t.apiName,
+              identifier: t.identifier,
+            })),
+            stepIndex,
+            userId: ctx.userId || '',
+          } as any)
+          .catch(() => {});
+      }
 
       const newState = structuredClone(state);
       newState.lastModified = new Date().toISOString();

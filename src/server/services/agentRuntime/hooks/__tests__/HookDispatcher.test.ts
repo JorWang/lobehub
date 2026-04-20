@@ -297,5 +297,325 @@ describe('HookDispatcher', () => {
         }),
       );
     });
+
+    it('should dispatch onToolCallError hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'tool-error', type: 'onToolCallError' }]);
+
+      await dispatcher.dispatch(operationId, 'onToolCallError', {
+        apiName: 'search_tweets',
+        args: { query: 'test' },
+        callIndex: 1,
+        error: 'Network timeout',
+        identifier: 'twitter',
+        operationId,
+        stepIndex: 2,
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiName: 'search_tweets',
+          error: 'Network timeout',
+          identifier: 'twitter',
+        }),
+      );
+    });
+
+    it('should dispatch afterToolCall hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'after-tool', type: 'afterToolCall' }]);
+
+      await dispatcher.dispatch(operationId, 'afterToolCall', {
+        apiName: 'search_tweets',
+        args: { query: 'test' },
+        callIndex: 1,
+        content: '{"tweets":[]}',
+        executionTimeMs: 150,
+        identifier: 'twitter',
+        mocked: false,
+        operationId,
+        stepIndex: 1,
+        success: true,
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiName: 'search_tweets',
+          identifier: 'twitter',
+          success: true,
+        }),
+      );
+    });
+  });
+
+  describe('dispatchBeforeToolCall', () => {
+    it('should return null when no beforeToolCall hooks registered', async () => {
+      const result = await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: {},
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+      expect(result).toBeNull();
+    });
+
+    it('should return mock result when handler calls mock()', async () => {
+      dispatcher.register(operationId, [
+        {
+          handler: async (event: any) => {
+            event.mock({ content: '{"mocked":true}' });
+          },
+          id: 'mock-hook',
+          type: 'beforeToolCall',
+        },
+      ]);
+
+      const result = await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: { query: 'test' },
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+
+      expect(result).toEqual({ content: '{"mocked":true}' });
+    });
+
+    it('should return null when handler does not call mock()', async () => {
+      dispatcher.register(operationId, [
+        {
+          handler: async () => {
+            // observe only, no mock
+          },
+          id: 'observe-hook',
+          type: 'beforeToolCall',
+        },
+      ]);
+
+      const result = await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: {},
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should pass correct event fields to handler', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'check-fields', type: 'beforeToolCall' }]);
+
+      await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'post_tweet',
+        args: { text: 'hello' },
+        callIndex: 3,
+        identifier: 'twitter',
+        stepIndex: 5,
+      });
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiName: 'post_tweet',
+          args: { text: 'hello' },
+          callIndex: 3,
+          identifier: 'twitter',
+          mock: expect.any(Function),
+          operationId,
+          stepIndex: 5,
+        }),
+      );
+    });
+
+    it('should not throw if handler throws (non-fatal)', async () => {
+      dispatcher.register(operationId, [
+        {
+          handler: async () => {
+            throw new Error('hook failed');
+          },
+          id: 'failing-hook',
+          type: 'beforeToolCall',
+        },
+      ]);
+
+      const result = await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: {},
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('compact hooks', () => {
+    it('should dispatch beforeCompact hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'before-compact', type: 'beforeCompact' }]);
+
+      await dispatcher.dispatch(operationId, 'beforeCompact', {
+        messageCount: 20,
+        operationId,
+        stepIndex: 3,
+        tokenCount: 8000,
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ messageCount: 20, tokenCount: 8000 }),
+      );
+    });
+
+    it('should dispatch afterCompact hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'after-compact', type: 'afterCompact' }]);
+
+      await dispatcher.dispatch(operationId, 'afterCompact', {
+        groupId: 'grp_123',
+        messagesAfter: 3,
+        messagesBefore: 20,
+        operationId,
+        stepIndex: 3,
+        summary: 'The conversation covered...',
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ messagesBefore: 20, messagesAfter: 3, groupId: 'grp_123' }),
+      );
+    });
+
+    it('should dispatch onCompactError hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'compact-error', type: 'onCompactError' }]);
+
+      await dispatcher.dispatch(operationId, 'onCompactError', {
+        error: 'LLM compression call failed',
+        operationId,
+        stepIndex: 3,
+        tokenCount: 8000,
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'LLM compression call failed', tokenCount: 8000 }),
+      );
+    });
+  });
+
+  describe('human intervention hooks', () => {
+    it('should dispatch beforeHumanIntervention hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [
+        { handler, id: 'before-hi', type: 'beforeHumanIntervention' },
+      ]);
+
+      await dispatcher.dispatch(operationId, 'beforeHumanIntervention', {
+        operationId,
+        pendingTools: [{ apiName: 'search_tweets', identifier: 'twitter' }],
+        stepIndex: 2,
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pendingTools: [{ apiName: 'search_tweets', identifier: 'twitter' }],
+        }),
+      );
+    });
+
+    it('should dispatch afterHumanIntervention hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [
+        { handler, id: 'after-hi', type: 'afterHumanIntervention' },
+      ]);
+
+      await dispatcher.dispatch(operationId, 'afterHumanIntervention', {
+        action: 'approve',
+        operationId,
+        toolCallId: 'call_123',
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'approve', toolCallId: 'call_123' }),
+      );
+    });
+
+    it('should dispatch onStopByHumanIntervention hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [
+        { handler, id: 'stop-hi', type: 'onStopByHumanIntervention' },
+      ]);
+
+      await dispatcher.dispatch(operationId, 'onStopByHumanIntervention', {
+        operationId,
+        rejectionReason: 'Not safe to execute',
+        toolCallId: 'call_456',
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ rejectionReason: 'Not safe to execute' }),
+      );
+    });
+  });
+
+  describe('callAgent hooks', () => {
+    it('should dispatch beforeCallAgent hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'before-call', type: 'beforeCallAgent' }]);
+
+      await dispatcher.dispatch(operationId, 'beforeCallAgent', {
+        agentId: 'sub-agent-1',
+        instruction: 'Analyze this data',
+        operationId,
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ agentId: 'sub-agent-1', instruction: 'Analyze this data' }),
+      );
+    });
+
+    it('should dispatch afterCallAgent hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'after-call', type: 'afterCallAgent' }]);
+
+      await dispatcher.dispatch(operationId, 'afterCallAgent', {
+        agentId: 'sub-agent-1',
+        operationId,
+        subOperationId: 'op_sub_123',
+        success: true,
+        threadId: 'thread_123',
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ agentId: 'sub-agent-1', success: true, threadId: 'thread_123' }),
+      );
+    });
+
+    it('should dispatch onCallAgentError hooks', async () => {
+      const handler = vi.fn();
+      dispatcher.register(operationId, [{ handler, id: 'call-error', type: 'onCallAgentError' }]);
+
+      await dispatcher.dispatch(operationId, 'onCallAgentError', {
+        agentId: 'sub-agent-1',
+        error: 'Sub-agent timed out',
+        operationId,
+        userId: 'user_test',
+      } as any);
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ agentId: 'sub-agent-1', error: 'Sub-agent timed out' }),
+      );
+    });
   });
 });

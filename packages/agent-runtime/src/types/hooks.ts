@@ -14,8 +14,18 @@ export type AgentHookType =
   | 'afterToolCall' // After a tool call completes (observation only)
   | 'beforeStep' // Before each step executes
   | 'beforeToolCall' // Before a tool call executes (supports mocking via event.mock())
+  | 'beforeCallAgent' // Before calling a sub-agent
+  | 'afterCallAgent' // After sub-agent completes
+  | 'beforeCompact' // Before context compression starts
+  | 'beforeHumanIntervention' // Before agent pauses for human approval
+  | 'afterCompact' // After context compression completes
+  | 'afterHumanIntervention' // After human approves/rejects and agent resumes
+  | 'onCallAgentError' // Sub-agent execution failed
+  | 'onCompactError' // Context compression failed
   | 'onComplete' // Operation reaches terminal state (done/error/interrupted)
-  | 'onError'; // Error during execution
+  | 'onStopByHumanIntervention' // Human rejected and agent halted
+  | 'onError' // Error during execution
+  | 'onToolCallError'; // Tool call threw an exception (not just success=false)
 
 /**
  * Unified event payload passed to hook handlers and webhook payloads
@@ -121,4 +131,107 @@ export interface AfterToolCallHookEvent {
   operationId: string;
   stepIndex: number;
   success: boolean;
+}
+
+/**
+ * Event payload for onToolCallError hooks.
+ * Fires when tool execution throws an exception (catch block), not just success=false.
+ */
+export interface ToolCallErrorHookEvent {
+  apiName: string;
+  args: Record<string, any>;
+  callIndex: number;
+  error: string;
+  identifier: string;
+  operationId: string;
+  stepIndex: number;
+}
+
+/**
+ * Event payload for beforeCompact hooks.
+ */
+export interface BeforeCompactHookEvent {
+  messageCount: number;
+  operationId: string;
+  stepIndex: number;
+  tokenCount: number;
+}
+
+/**
+ * Event payload for afterCompact hooks.
+ */
+export interface AfterCompactHookEvent {
+  groupId: string;
+  messagesAfter: number;
+  messagesBefore: number;
+  operationId: string;
+  stepIndex: number;
+  summary: string;
+}
+
+/**
+ * Event payload for onCompactError hooks.
+ */
+export interface CompactErrorHookEvent {
+  error: string;
+  operationId: string;
+  stepIndex: number;
+  tokenCount: number;
+}
+
+/**
+ * Event payload for beforeHumanIntervention hooks.
+ */
+export interface BeforeHumanInterventionHookEvent {
+  operationId: string;
+  pendingTools: Array<{ apiName: string; identifier: string }>;
+  stepIndex: number;
+}
+
+/**
+ * Event payload for afterHumanIntervention hooks.
+ */
+export interface AfterHumanInterventionHookEvent {
+  action: 'approve' | 'reject' | 'rejectAndContinue';
+  operationId: string;
+  rejectionReason?: string;
+  toolCallId?: string;
+}
+
+/**
+ * Event payload for onStopByHumanIntervention hooks.
+ */
+export interface StopByHumanInterventionHookEvent {
+  operationId: string;
+  rejectionReason?: string;
+  toolCallId?: string;
+}
+
+/**
+ * Event payload for beforeCallAgent hooks.
+ */
+export interface BeforeCallAgentHookEvent {
+  agentId: string;
+  instruction: string;
+  operationId: string;
+}
+
+/**
+ * Event payload for afterCallAgent hooks.
+ */
+export interface AfterCallAgentHookEvent {
+  agentId: string;
+  operationId: string;
+  subOperationId: string;
+  success: boolean;
+  threadId: string;
+}
+
+/**
+ * Event payload for onCallAgentError hooks.
+ */
+export interface CallAgentErrorHookEvent {
+  agentId: string;
+  error: string;
+  operationId: string;
 }

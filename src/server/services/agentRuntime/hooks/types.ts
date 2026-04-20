@@ -8,9 +8,19 @@
 import type { AgentHookEvent, AgentHookType } from '@lobechat/agent-runtime';
 
 export type {
+  AfterCallAgentHookEvent,
+  AfterCompactHookEvent,
+  AfterHumanInterventionHookEvent,
   AfterToolCallHookEvent,
   AgentHookEvent,
   AgentHookType,
+  BeforeCallAgentHookEvent,
+  BeforeCompactHookEvent,
+  BeforeHumanInterventionHookEvent,
+  CallAgentErrorHookEvent,
+  CompactErrorHookEvent,
+  StopByHumanInterventionHookEvent,
+  ToolCallErrorHookEvent,
   ToolCallHookEvent,
 } from '@lobechat/agent-runtime';
 
