@@ -1404,12 +1404,24 @@ export const createRuntimeExecutors = (
         type: 'tool_start',
       });
 
+      // Extract before try so catch block can access for hook dispatch
+      const chatToolPayload: ChatToolPayload = payload.toolCalling;
+      const toolName = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
+
+      // Track tool call count for hooks (before try so catch can access)
+      const toolKey = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
+      const callIndex = (toolCallCounts.get(toolKey) ?? 0) + 1;
+      toolCallCounts.set(toolKey, callIndex);
+
+      let parsedArgs: Record<string, any> = {};
       try {
-        // payload is { parentMessageId, toolCalling: ChatToolPayload }
-        const chatToolPayload: ChatToolPayload = payload.toolCalling;
+        parsedArgs =
+          typeof chatToolPayload.arguments === 'string'
+            ? JSON.parse(chatToolPayload.arguments)
+            : (chatToolPayload.arguments ?? {});
+      } catch {}
 
-        const toolName = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
-
+      try {
         // Check if this is a client-side function tool — pause instead of executing
         const toolSource =
           state.operationToolSet?.sourceMap?.[chatToolPayload.identifier] ??
@@ -1469,19 +1481,6 @@ export const createRuntimeExecutors = (
         const canDispatchToClient =
           chatToolPayload.executor === 'client' &&
           typeof streamManager.sendToolExecute === 'function';
-
-        // Track tool call count for hooks
-        const toolKey = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
-        const callIndex = (toolCallCounts.get(toolKey) ?? 0) + 1;
-        toolCallCounts.set(toolKey, callIndex);
-
-        let parsedArgs: Record<string, any> = {};
-        try {
-          parsedArgs =
-            typeof chatToolPayload.arguments === 'string'
-              ? JSON.parse(chatToolPayload.arguments)
-              : (chatToolPayload.arguments ?? {});
-        } catch {}
 
         // Dispatch beforeToolCall hook (may return mock result)
         let toolCallMocked = false;

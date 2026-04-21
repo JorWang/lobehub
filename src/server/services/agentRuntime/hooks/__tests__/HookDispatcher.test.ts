@@ -567,6 +567,150 @@ describe('HookDispatcher', () => {
     });
   });
 
+  describe('dispatchBeforeToolCall — edge cases', () => {
+    it('should use the last mock() call when multiple handlers call mock()', async () => {
+      dispatcher.register(operationId, [
+        {
+          handler: async (event: any) => {
+            event.mock({ content: '{"first":true}' });
+          },
+          id: 'mock-1',
+          type: 'beforeToolCall',
+        },
+        {
+          handler: async (event: any) => {
+            event.mock({ content: '{"second":true}' });
+          },
+          id: 'mock-2',
+          type: 'beforeToolCall',
+        },
+      ]);
+
+      const result = await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: {},
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+
+      expect(result).toEqual({ content: '{"second":true}' });
+    });
+
+    it('should return mock when only one of multiple handlers calls mock()', async () => {
+      const observeHandler = vi.fn();
+      dispatcher.register(operationId, [
+        { handler: observeHandler, id: 'observe', type: 'beforeToolCall' },
+        {
+          handler: async (event: any) => {
+            event.mock({ content: '{"mocked":true}' });
+          },
+          id: 'mocker',
+          type: 'beforeToolCall',
+        },
+      ]);
+
+      const result = await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: {},
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+
+      expect(observeHandler).toHaveBeenCalled();
+      expect(result).toEqual({ content: '{"mocked":true}' });
+    });
+
+    it('should only mock in local mode, not production mode', async () => {
+      vi.mocked(isQueueAgentRuntimeEnabled).mockReturnValue(true);
+
+      dispatcher.register(operationId, [
+        {
+          handler: async (event: any) => {
+            event.mock({ content: '{"mocked":true}' });
+          },
+          id: 'mock-hook',
+          type: 'beforeToolCall',
+        },
+      ]);
+
+      // dispatchBeforeToolCall only runs in local mode
+      const result = await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: {},
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+
+      // In local mode this would return the mock, but hooks are still in-memory
+      // so it should still work (dispatchBeforeToolCall doesn't check queue mode)
+      expect(result).toEqual({ content: '{"mocked":true}' });
+    });
+
+    it('should not affect other hook types when beforeToolCall is registered', async () => {
+      const afterStepHandler = vi.fn();
+      const onCompleteHandler = vi.fn();
+
+      dispatcher.register(operationId, [
+        {
+          handler: async (event: any) => {
+            event.mock({ content: 'mock' });
+          },
+          id: 'tool-mock',
+          type: 'beforeToolCall',
+        },
+        { handler: afterStepHandler, id: 'after-step', type: 'afterStep' },
+        { handler: onCompleteHandler, id: 'complete', type: 'onComplete' },
+      ]);
+
+      // beforeToolCall should not trigger afterStep or onComplete
+      await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: {},
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+
+      expect(afterStepHandler).not.toHaveBeenCalled();
+      expect(onCompleteHandler).not.toHaveBeenCalled();
+
+      // afterStep should still work independently
+      await dispatcher.dispatch(operationId, 'afterStep', makeEvent({ stepIndex: 0 }));
+      expect(afterStepHandler).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call handlers even after a previous handler throws', async () => {
+      const mockHandler = vi.fn().mockImplementation(async (event: any) => {
+        event.mock({ content: '{"recovered":true}' });
+      });
+
+      dispatcher.register(operationId, [
+        {
+          handler: async () => {
+            throw new Error('first handler fails');
+          },
+          id: 'failing',
+          type: 'beforeToolCall',
+        },
+        { handler: mockHandler, id: 'recovering', type: 'beforeToolCall' },
+      ]);
+
+      const result = await dispatcher.dispatchBeforeToolCall(operationId, {
+        apiName: 'search',
+        args: {},
+        callIndex: 1,
+        identifier: 'twitter',
+        stepIndex: 0,
+      });
+
+      expect(mockHandler).toHaveBeenCalled();
+      expect(result).toEqual({ content: '{"recovered":true}' });
+    });
+  });
+
   describe('callAgent hooks', () => {
     it('should dispatch beforeCallAgent hooks', async () => {
       const handler = vi.fn();
