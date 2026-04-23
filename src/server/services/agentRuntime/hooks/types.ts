@@ -5,7 +5,7 @@
  * Hook registration, webhook delivery, and serialization types are server-specific.
  */
 
-import type { AgentHookEvent, AgentHookType } from '@lobechat/agent-runtime';
+import type { AgentHookType } from '@lobechat/agent-runtime';
 
 export type {
   AfterCallAgentHookEvent,
@@ -14,6 +14,7 @@ export type {
   AfterToolCallHookEvent,
   AgentHookEvent,
   AgentHookType,
+  AnyHookEvent,
   BeforeCallAgentHookEvent,
   BeforeCompactHookEvent,
   BeforeHumanInterventionHookEvent,
@@ -45,7 +46,7 @@ export interface AgentHookWebhook {
  */
 export interface AgentHook {
   /** Handler function for local mode (called in-process) */
-  handler: (event: AgentHookEvent) => Promise<void>;
+  handler: (event: AnyHookEvent) => Promise<void>;
 
   /** Unique hook identifier (for logging, debugging, idempotency) */
   id: string;

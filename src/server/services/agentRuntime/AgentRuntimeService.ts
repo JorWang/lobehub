@@ -1608,7 +1608,7 @@ export class AgentRuntimeService {
           operationId: state.metadata?.operationId ?? '',
           toolCallId: approvedToolCall.id,
           userId: state.metadata?.userId || '',
-        } as any)
+        })
         .catch(() => {});
 
       const nextContext: AgentRuntimeContext = {
@@ -1675,7 +1675,7 @@ export class AgentRuntimeService {
             rejectionReason,
             toolCallId: rejectedToolCallId,
             userId: state.metadata?.userId || '',
-          } as any)
+          })
           .catch(() => {});
 
         if (newState.pendingToolsCalling.length > 0) {
@@ -1697,7 +1697,7 @@ export class AgentRuntimeService {
           rejectionReason,
           toolCallId: rejectedToolCallId,
           userId: state.metadata?.userId || '',
-        } as any)
+        })
         .catch(() => {});
 
       newState.status = 'interrupted';

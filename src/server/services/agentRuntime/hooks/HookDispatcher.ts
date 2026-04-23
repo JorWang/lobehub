@@ -5,9 +5,9 @@ import { isQueueAgentRuntimeEnabled } from '@/server/services/queue/impls';
 
 import type {
   AgentHook,
-  AgentHookEvent,
   AgentHookType,
   AgentHookWebhook,
+  AnyHookEvent,
   SerializedHook,
   ToolCallHookEvent,
 } from './types';
@@ -94,7 +94,7 @@ export class HookDispatcher {
   async dispatch(
     operationId: string,
     type: AgentHookType,
-    event: AgentHookEvent,
+    event: AnyHookEvent,
     serializedHooks?: SerializedHook[],
   ): Promise<void> {
     const isQueueMode = isQueueAgentRuntimeEnabled();

@@ -1124,7 +1124,7 @@ export const createRuntimeExecutors = (
             stepIndex,
             tokenCount: currentTokenCount,
             userId: ctx.userId || '',
-          } as any)
+          })
           .catch(() => {});
       }
 
@@ -1306,7 +1306,7 @@ export const createRuntimeExecutors = (
               stepIndex,
               summary: summaryContent.slice(0, 500),
               userId: ctx.userId || '',
-            } as any)
+            })
             .catch(() => {});
         }
 
@@ -1343,7 +1343,7 @@ export const createRuntimeExecutors = (
               stepIndex,
               tokenCount: currentTokenCount,
               userId: ctx.userId || '',
-            } as any)
+            })
             .catch(() => {});
         }
 
@@ -1540,7 +1540,7 @@ export const createRuntimeExecutors = (
               stepIndex,
               success: isSuccess,
               userId: ctx.userId || '',
-            } as any)
+            })
             .catch(() => {});
         }
         log(
@@ -1737,7 +1737,7 @@ export const createRuntimeExecutors = (
               operationId,
               stepIndex,
               userId: ctx.userId || '',
-            } as any)
+            })
             .catch(() => {});
         }
 
@@ -1947,7 +1947,7 @@ export const createRuntimeExecutors = (
                   stepIndex,
                   success: isSuccess,
                   userId: ctx.userId || '',
-                } as any)
+                })
                 .catch(() => {});
             }
             log(
@@ -2048,7 +2048,7 @@ export const createRuntimeExecutors = (
                   operationId,
                   stepIndex,
                   userId: ctx.userId || '',
-                } as any)
+                })
                 .catch(() => {});
             }
 
@@ -2295,7 +2295,7 @@ export const createRuntimeExecutors = (
             })),
             stepIndex,
             userId: ctx.userId || '',
-          } as any)
+          })
           .catch(() => {});
       }
 

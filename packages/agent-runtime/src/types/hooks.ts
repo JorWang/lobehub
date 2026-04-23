@@ -117,9 +117,6 @@ export interface ToolCallHookEvent {
   stepIndex: number;
 }
 
-/**
- * Event payload for afterToolCall hooks (observation only).
- */
 export interface AfterToolCallHookEvent {
   apiName: string;
   args: Record<string, any>;
@@ -131,12 +128,9 @@ export interface AfterToolCallHookEvent {
   operationId: string;
   stepIndex: number;
   success: boolean;
+  userId?: string;
 }
 
-/**
- * Event payload for onToolCallError hooks.
- * Fires when tool execution throws an exception (catch block), not just success=false.
- */
 export interface ToolCallErrorHookEvent {
   apiName: string;
   args: Record<string, any>;
@@ -145,21 +139,17 @@ export interface ToolCallErrorHookEvent {
   identifier: string;
   operationId: string;
   stepIndex: number;
+  userId?: string;
 }
 
-/**
- * Event payload for beforeCompact hooks.
- */
 export interface BeforeCompactHookEvent {
   messageCount: number;
   operationId: string;
   stepIndex: number;
   tokenCount: number;
+  userId?: string;
 }
 
-/**
- * Event payload for afterCompact hooks.
- */
 export interface AfterCompactHookEvent {
   groupId: string;
   messagesAfter: number;
@@ -167,71 +157,75 @@ export interface AfterCompactHookEvent {
   operationId: string;
   stepIndex: number;
   summary: string;
+  userId?: string;
 }
 
-/**
- * Event payload for onCompactError hooks.
- */
 export interface CompactErrorHookEvent {
   error: string;
   operationId: string;
   stepIndex: number;
   tokenCount: number;
+  userId?: string;
 }
 
-/**
- * Event payload for beforeHumanIntervention hooks.
- */
 export interface BeforeHumanInterventionHookEvent {
   operationId: string;
   pendingTools: Array<{ apiName: string; identifier: string }>;
   stepIndex: number;
+  userId?: string;
 }
 
-/**
- * Event payload for afterHumanIntervention hooks.
- */
 export interface AfterHumanInterventionHookEvent {
   action: 'approve' | 'reject' | 'rejectAndContinue';
   operationId: string;
   rejectionReason?: string;
   toolCallId?: string;
+  userId?: string;
 }
 
-/**
- * Event payload for onStopByHumanIntervention hooks.
- */
 export interface StopByHumanInterventionHookEvent {
   operationId: string;
   rejectionReason?: string;
   toolCallId?: string;
+  userId?: string;
 }
 
-/**
- * Event payload for beforeCallAgent hooks.
- */
 export interface BeforeCallAgentHookEvent {
   agentId: string;
   instruction: string;
   operationId: string;
+  userId?: string;
 }
 
-/**
- * Event payload for afterCallAgent hooks.
- */
 export interface AfterCallAgentHookEvent {
   agentId: string;
   operationId: string;
   subOperationId: string;
   success: boolean;
   threadId: string;
+  userId?: string;
 }
 
-/**
- * Event payload for onCallAgentError hooks.
- */
 export interface CallAgentErrorHookEvent {
   agentId: string;
   error: string;
   operationId: string;
+  userId?: string;
 }
+
+/**
+ * Union of all hook event types for dispatch methods that accept any hook event.
+ */
+export type AnyHookEvent =
+  | AfterCallAgentHookEvent
+  | AfterCompactHookEvent
+  | AfterHumanInterventionHookEvent
+  | AfterToolCallHookEvent
+  | AgentHookEvent
+  | BeforeCallAgentHookEvent
+  | BeforeCompactHookEvent
+  | BeforeHumanInterventionHookEvent
+  | CallAgentErrorHookEvent
+  | CompactErrorHookEvent
+  | StopByHumanInterventionHookEvent
+  | ToolCallErrorHookEvent;

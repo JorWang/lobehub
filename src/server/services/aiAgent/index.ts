@@ -1653,7 +1653,7 @@ export class AiAgentService {
           instruction: instruction.slice(0, 200),
           operationId: parentOperationId,
           userId: this.userId,
-        } as any)
+        })
         .catch(() => {});
     }
 
@@ -1728,7 +1728,7 @@ export class AiAgentService {
             error: result.error || 'Sub-agent execution failed',
             operationId: parentOperationId,
             userId: this.userId,
-          } as any)
+          })
           .catch(() => {});
       }
     } else if (parentOperationId) {
@@ -1741,7 +1741,7 @@ export class AiAgentService {
           success: true,
           threadId: thread.id,
           userId: this.userId,
-        } as any)
+        })
         .catch(() => {});
     }
 
