@@ -129,9 +129,13 @@ export class HookDispatcher {
             hook.webhook.url,
           );
           // Strip finalState from webhook payload (too large, local-only)
-          const { finalState: _, ...webhookEvent } = event;
+          // Webhook delivery only applies to step-level hooks (AgentHookEvent)
+          const webhookPayload = { ...event };
+          if ('finalState' in webhookPayload) {
+            delete (webhookPayload as { finalState?: unknown }).finalState;
+          }
           await deliverWebhook(hook.webhook, {
-            ...webhookEvent,
+            ...webhookPayload,
             hookId: hook.id,
             hookType: type,
             ...hook.webhook.body,

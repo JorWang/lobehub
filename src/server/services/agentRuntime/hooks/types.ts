@@ -5,7 +5,7 @@
  * Hook registration, webhook delivery, and serialization types are server-specific.
  */
 
-import type { AgentHookType } from '@lobechat/agent-runtime';
+import type { AgentHookType, AnyHookEvent } from '@lobechat/agent-runtime';
 
 export type {
   AfterCallAgentHookEvent,

@@ -3737,7 +3737,7 @@ describe('RuntimeExecutors', () => {
               arguments: '{}',
               id: 'tc-1',
               identifier: 'twitter',
-              type: 'default',
+              type: 'default' as const,
             },
           ],
           type: 'request_human_approve' as const,
