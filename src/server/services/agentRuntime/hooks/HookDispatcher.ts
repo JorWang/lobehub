@@ -5,6 +5,7 @@ import { isQueueAgentRuntimeEnabled } from '@/server/services/queue/impls';
 
 import type {
   AgentHook,
+  AgentHookEvent,
   AgentHookType,
   AgentHookWebhook,
   AnyHookEvent,
@@ -106,7 +107,7 @@ export class HookDispatcher {
       for (const hook of hooks) {
         try {
           log('[%s][%s] Dispatching local hook: %s', operationId, type, hook.id);
-          await hook.handler(event);
+          await hook.handler(event as AgentHookEvent);
         } catch (error) {
           log('[%s][%s] Hook error (non-fatal): %s %O', operationId, type, hook.id, error);
           // Hook errors should NOT affect main execution flow

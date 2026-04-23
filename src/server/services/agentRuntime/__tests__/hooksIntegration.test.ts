@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AgentRuntimeService } from '../AgentRuntimeService';
 import { hookDispatcher } from '../hooks';
-import type { AnyHookEvent } from '../hooks/types';
+import type { AgentHookEvent } from '../hooks/types';
 
 // ── Mocks ──────────────────────────────────────────
 vi.mock('@/envs/app', () => ({ appEnv: { APP_URL: 'http://localhost:3010' } }));
@@ -123,7 +123,7 @@ describe('Hooks integration — afterStep event carries step presentation data',
     });
 
     // Capture the actual hook event
-    const capturedEvents: AnyHookEvent[] = [];
+    const capturedEvents: AgentHookEvent[] = [];
     const dispatchSpy = vi
       .spyOn(hookDispatcher, 'dispatch')
       .mockImplementation(async (_opId, type, event) => {
@@ -216,7 +216,7 @@ describe('Hooks integration — afterStep event carries step presentation data',
       runtime: { step: vi.fn().mockResolvedValue(stepResult) },
     });
 
-    const capturedEvents: AnyHookEvent[] = [];
+    const capturedEvents: AgentHookEvent[] = [];
     const dispatchSpy = vi
       .spyOn(hookDispatcher, 'dispatch')
       .mockImplementation(async (_opId, type, event) => {
@@ -271,7 +271,7 @@ describe('Hooks integration — onComplete event for early-terminal states', () 
       usage: { llm: { apiCalls: 2, tokens: { total: 500 } }, tools: { totalCalls: 1 } },
     });
 
-    const capturedEvents: AnyHookEvent[] = [];
+    const capturedEvents: AgentHookEvent[] = [];
     const dispatchSpy = vi
       .spyOn(hookDispatcher, 'dispatch')
       .mockImplementation(async (_opId, type, event) => {
@@ -338,7 +338,7 @@ describe('Hooks integration — afterStep event is compatible with renderStepPro
       runtime: { step: vi.fn().mockResolvedValue(stepResult) },
     });
 
-    const capturedEvents: AnyHookEvent[] = [];
+    const capturedEvents: AgentHookEvent[] = [];
     const dispatchSpy = vi
       .spyOn(hookDispatcher, 'dispatch')
       .mockImplementation(async (_opId, type, event) => {
