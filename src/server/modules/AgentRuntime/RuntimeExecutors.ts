@@ -29,7 +29,7 @@ import { parse } from '@lobechat/conversation-flow';
 import { consumeStreamUntilDone } from '@lobechat/model-runtime';
 import { chainCompressContext } from '@lobechat/prompts';
 import { type ChatToolPayload, type MessageToolCall, type UIChatMessage } from '@lobechat/types';
-import { serializePartsForStorage } from '@lobechat/utils';
+import { sanitizeToolCallArguments, serializePartsForStorage } from '@lobechat/utils';
 import debug from 'debug';
 
 import { type MessageModel, MessageModel as MessageModelClass } from '@/database/models/message';
@@ -49,6 +49,7 @@ import {
 } from '@/server/services/toolExecution';
 
 import { dispatchClientTool } from './dispatchClientTool';
+import { formatErrorEventData } from './formatErrorEventData';
 import { classifyLLMError, type LLMErrorKind } from './llmErrorClassification';
 import {
   createConversationParentMissingError,
@@ -195,51 +196,6 @@ const buildToolDiscoveryConfig = (operationToolSet: OperationToolSet, enabledToo
   return { availableTools };
 };
 
-const formatErrorEventData = (error: unknown, phase: string) => {
-  let errorMessage = 'Unknown error';
-  let errorType: string | undefined;
-
-  if (error && typeof error === 'object') {
-    const payload = error as { error?: unknown; errorType?: unknown; message?: unknown };
-
-    if (typeof payload.errorType === 'string') {
-      errorType = payload.errorType;
-    }
-
-    if (typeof payload.message === 'string' && payload.message.length > 0) {
-      errorMessage = payload.message;
-    } else if (typeof payload.error === 'string' && payload.error.length > 0) {
-      errorMessage = payload.error;
-    } else if (
-      payload.error &&
-      typeof payload.error === 'object' &&
-      'message' in payload.error &&
-      typeof payload.error.message === 'string'
-    ) {
-      errorMessage = payload.error.message;
-    } else if (error instanceof Error && error.message.length > 0) {
-      errorMessage = error.message;
-    } else if (errorType) {
-      errorMessage = errorType;
-    }
-  } else if (error instanceof Error && error.message.length > 0) {
-    errorMessage = error.message;
-    errorType = error.name;
-  } else if (typeof error === 'string' && error.length > 0) {
-    errorMessage = error;
-  }
-
-  if (!errorType && error instanceof Error && error.name) {
-    errorType = error.name;
-  }
-
-  return {
-    error: errorMessage,
-    errorType,
-    phase,
-  };
-};
-
 export interface RuntimeExecutorContext {
   agentConfig?: any;
   botPlatformContext?: any;
@@ -263,7 +219,6 @@ export const createRuntimeExecutors = (
   ctx: RuntimeExecutorContext,
 ): Partial<Record<AgentInstruction['type'], InstructionExecutor>> => {
   const toolCallCounts = new Map<string, number>();
-
   return {
     /**
      * Create streaming LLM executor
@@ -831,7 +786,14 @@ export const createRuntimeExecutors = (
                 },
                 onToolsCalling: async ({ toolsCalling: raw }) => {
                   const resolvedCalls = new ToolNameResolver().resolve(raw, resolved.manifestMap);
-                  // Attach source (origin) and executor (dispatch target) for routing
+                  // Attach source (origin) and executor (dispatch target) for routing.
+                  // `arguments` are kept RAW here on purpose so the tool executor can
+                  // still detect malformed JSON and return an `INVALID_JSON_ARGUMENTS`
+                  // tool-result with the original bad string — that's the
+                  // self-reflection signal the model needs to fix its own output.
+                  // Sanitization happens later, only at the persist boundaries
+                  // (DB write and state.messages push) to protect strict providers
+                  // replaying history. See LOBE-7761.
                   const payload = resolvedCalls.map((p) => ({
                     ...p,
                     executor: resolved.executorMap?.[p.identifier],
@@ -963,13 +925,24 @@ export const createRuntimeExecutors = (
                 metadata.isMultimodal = true;
               }
 
+              // Sanitize tool_call `arguments` before persisting to DB so malformed
+              // JSON (e.g. Qwen emitting `{, ...}`) can't poison future context
+              // builds and 400 strict providers like NVIDIA NIM. See LOBE-7761.
+              const persistedTools =
+                toolsCalling.length > 0
+                  ? toolsCalling.map((t) => ({
+                      ...t,
+                      arguments: sanitizeToolCallArguments(t.arguments),
+                    }))
+                  : undefined;
+
               await ctx.messageModel.update(assistantMessageItem.id, {
                 content: finalContent,
                 imageList: imageList.length > 0 ? imageList : undefined,
                 metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
                 reasoning: finalReasoning,
                 search: grounding,
-                tools: toolsCalling.length > 0 ? toolsCalling : undefined,
+                tools: persistedTools,
               });
             } catch (error) {
               console.error('[call_llm] Failed to update message:', error);
@@ -985,12 +958,26 @@ export const createRuntimeExecutors = (
             // falls through to a DB query; when human-approve fires on the
             // fresh LLM turn, both code paths miss and the op errors with
             // "No assistant message found as parent for pending tool messages".
+            // Sanitize mirrors the DB write above — state.messages flows into the
+            // next LLM call payload, so the same poisoning risk applies here.
+            // See LOBE-7761.
+            const stateToolCalls =
+              tool_calls.length > 0
+                ? tool_calls.map((tc) => ({
+                    ...tc,
+                    function: {
+                      ...tc.function,
+                      arguments: sanitizeToolCallArguments(tc.function.arguments),
+                    },
+                  }))
+                : undefined;
+
             newState.messages.push({
               content,
               id: assistantMessageItem.id,
               reasoning: finalReasoning,
               role: 'assistant',
-              tool_calls: tool_calls.length > 0 ? tool_calls : undefined,
+              tool_calls: stateToolCalls,
             });
 
             if (currentStepUsage) {
@@ -1129,7 +1116,6 @@ export const createRuntimeExecutors = (
         };
       }
 
-      // Dispatch beforeCompact hook
       if (ctx.hookDispatcher) {
         ctx.hookDispatcher
           .dispatch(operationId, 'beforeCompact', {
@@ -1310,7 +1296,6 @@ export const createRuntimeExecutors = (
           type: 'compression_complete',
         });
 
-        // Dispatch afterCompact hook
         if (ctx.hookDispatcher) {
           ctx.hookDispatcher
             .dispatch(operationId, 'afterCompact', {
@@ -1350,7 +1335,6 @@ export const createRuntimeExecutors = (
           error,
         );
 
-        // Dispatch onCompactError hook
         if (ctx.hookDispatcher) {
           ctx.hookDispatcher
             .dispatch(operationId, 'onCompactError', {
@@ -1404,11 +1388,10 @@ export const createRuntimeExecutors = (
         type: 'tool_start',
       });
 
-      // Extract before try so catch block can access for hook dispatch
+      // payload is { parentMessageId, toolCalling: ChatToolPayload }
       const chatToolPayload: ChatToolPayload = payload.toolCalling;
-      const toolName = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
 
-      // Track tool call count for hooks (before try so catch can access)
+      const toolName = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
       const toolKey = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
       const callIndex = (toolCallCounts.get(toolKey) ?? 0) + 1;
       toolCallCounts.set(toolKey, callIndex);
@@ -1482,7 +1465,6 @@ export const createRuntimeExecutors = (
           chatToolPayload.executor === 'client' &&
           typeof streamManager.sendToolExecute === 'function';
 
-        // Dispatch beforeToolCall hook (may return mock result)
         let toolCallMocked = false;
         let mockResult: { content: string } | null = null;
         if (ctx.hookDispatcher) {
@@ -1511,10 +1493,13 @@ export const createRuntimeExecutors = (
           });
           execution = { attempts: 1, result: dispatchResult };
         } else {
+          // Inject source from sourceMap so BuiltinToolsExecutor can route
+          // lobehubSkill / klavis tools correctly (LLM responses don't carry source)
           if (toolSource && !chatToolPayload.source) {
             chatToolPayload.source = toolSource;
           }
 
+          // Execute tool using ToolExecutionService
           log(`[${operationLogId}] Executing tool ${toolName} ...`);
           execution = await executeToolWithRetry(
             () =>
@@ -1541,8 +1526,6 @@ export const createRuntimeExecutors = (
         const executionResult = execution.result;
         const executionTime = executionResult.executionTime;
         const isSuccess = executionResult.success;
-
-        // Dispatch afterToolCall hook (fire-and-forget)
         if (ctx.hookDispatcher) {
           ctx.hookDispatcher
             .dispatch(operationId, 'afterToolCall', {
@@ -1738,9 +1721,11 @@ export const createRuntimeExecutors = (
           },
         };
       } catch (error) {
+        // Persist-level failures (parent FK violation etc.) must propagate so
+        // the step fails — otherwise the swallow-and-continue path keeps
+        // running the agent on a broken conversation chain. See LOBE-7158.
         if (isPersistFatal(error)) throw error;
 
-        // Dispatch onToolCallError hook
         if (ctx.hookDispatcher) {
           ctx.hookDispatcher
             .dispatch(operationId, 'onToolCallError', {
@@ -1756,6 +1741,7 @@ export const createRuntimeExecutors = (
             .catch(() => {});
         }
 
+        // Publish tool execution error event
         await streamManager.publishStreamEvent(operationId, {
           data: formatErrorEventData(error, 'tool_execution'),
           stepIndex,
@@ -1771,7 +1757,7 @@ export const createRuntimeExecutors = (
 
         return {
           events,
-          newState: state,
+          newState: state, // State unchanged
         };
       }
     },
@@ -1856,11 +1842,9 @@ export const createRuntimeExecutors = (
             type: 'tool_start',
           });
 
-          // Track tool call count for hooks (before try so catch can access)
           const batchToolKey = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
           const batchCallIndex = (toolCallCounts.get(batchToolKey) ?? 0) + 1;
           toolCallCounts.set(batchToolKey, batchCallIndex);
-
           let batchParsedArgs: Record<string, any> = {};
           try {
             batchParsedArgs =
@@ -1871,6 +1855,7 @@ export const createRuntimeExecutors = (
 
           try {
             log(`[${operationLogId}] Executing tool ${toolName} ...`);
+            // Build effective manifest map (operation + step-level activations)
             const batchManifestMap = {
               ...(state.operationToolSet?.manifestMap ?? state.toolManifestMap),
               ...Object.fromEntries(
@@ -1886,7 +1871,6 @@ export const createRuntimeExecutors = (
               chatToolPayload.executor === 'client' &&
               typeof streamManager.sendToolExecute === 'function';
 
-            // Dispatch beforeToolCall hook (may return mock result)
             let batchToolCallMocked = false;
             let batchMockResult: { content: string } | null = null;
             if (ctx.hookDispatcher) {
@@ -1915,6 +1899,8 @@ export const createRuntimeExecutors = (
               });
               execution = { attempts: 1, result: dispatchResult };
             } else {
+              // Inject source from sourceMap so BuiltinToolsExecutor can route
+              // lobehubSkill / klavis tools correctly (LLM responses don't carry source)
               const batchToolSource =
                 state.operationToolSet?.sourceMap?.[chatToolPayload.identifier] ??
                 state.toolSourceMap?.[chatToolPayload.identifier];
@@ -1947,8 +1933,6 @@ export const createRuntimeExecutors = (
             const executionResult = execution.result;
             const executionTime = executionResult.executionTime;
             const isSuccess = executionResult.success;
-
-            // Dispatch afterToolCall hook (fire-and-forget)
             if (ctx.hookDispatcher) {
               ctx.hookDispatcher
                 .dispatch(operationId, 'afterToolCall', {
@@ -1966,7 +1950,6 @@ export const createRuntimeExecutors = (
                 } as any)
                 .catch(() => {});
             }
-
             log(
               `[${operationLogId}] Executed ${toolName} in ${executionTime}ms, success: ${isSuccess}`,
             );
@@ -2047,11 +2030,13 @@ export const createRuntimeExecutors = (
               toolName,
             };
           } catch (error) {
+            // Persist-level failures (e.g. parent FK violations) must propagate
+            // so the whole batch short-circuits. Without this the fallback to
+            // the already-deleted parent triggers another FK on the next step.
             if (isPersistFatal(error)) {
               throw error;
             }
 
-            // Dispatch onToolCallError hook
             if (ctx.hookDispatcher) {
               ctx.hookDispatcher
                 .dispatch(operationId, 'onToolCallError', {
@@ -2300,7 +2285,6 @@ export const createRuntimeExecutors = (
         type: 'step_start',
       });
 
-      // Dispatch beforeHumanIntervention hook
       if (ctx.hookDispatcher) {
         ctx.hookDispatcher
           .dispatch(operationId, 'beforeHumanIntervention', {
