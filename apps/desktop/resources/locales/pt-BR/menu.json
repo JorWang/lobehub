@@ -71,7 +71,6 @@
   "macOS.services": "Serviços",
   "macOS.unhide": "Mostrar Todos",
   "tray.open": "Abrir {{appName}}",
-  "tray.openMiniToolbar": "Quick Composer",
   "tray.quit": "Sair",
   "tray.show": "Mostrar {{appName}}",
   "view.forceReload": "Recarregar Forçadamente",
@@ -87,5 +86,6 @@
   "window.minimize": "Minimizar",
   "window.title": "Janela",
   "window.toggleFullscreen": "Alternar Tela Cheia",
-  "window.zoom": "Zoom"
+  "window.zoom": "Zoom",
+  "tray.openMiniToolbar": "Quick Composer"
 }

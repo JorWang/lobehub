@@ -71,7 +71,6 @@
   "macOS.services": "Услуги",
   "macOS.unhide": "Покажи всичко",
   "tray.open": "Отвори {{appName}}",
-  "tray.openMiniToolbar": "Quick Composer",
   "tray.quit": "Изход",
   "tray.show": "Покажи {{appName}}",
   "view.forceReload": "Принудително презареждане",
@@ -87,5 +86,6 @@
   "window.minimize": "Минимизирай",
   "window.title": "Прозорец",
   "window.toggleFullscreen": "Превключи на цял екран",
-  "window.zoom": "Мащаб"
+  "window.zoom": "Мащаб",
+  "tray.openMiniToolbar": "Quick Composer"
 }

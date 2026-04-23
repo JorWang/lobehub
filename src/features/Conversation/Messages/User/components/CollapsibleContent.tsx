@@ -28,6 +28,7 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
     overflow: hidden;
 
     mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
   `,
   contentExpanded: css`
     overflow: visible;

@@ -87,11 +87,7 @@ const AgentTasksPage = memo<AgentTasksPageProps>(({ agentId }) => {
           <KanbanBoard agentId={agentId} />
         </Flexbox>
       ) : (
-        <WideScreenContainer
-          gap={16}
-          paddingBlock={16}
-          wrapperStyle={{ flex: 1, overflowY: 'auto' }}
-        >
+        <WideScreenContainer gap={16} paddingBlock={16} wrapperStyle={{ flex: 1, overflowY: 'auto' }}>
           {!inlineCollapsed && <CreateTaskInlineEntry agentId={agentId} />}
           <TaskList options={viewOptions} />
         </WideScreenContainer>
