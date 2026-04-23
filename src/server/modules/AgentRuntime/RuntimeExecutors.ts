@@ -1856,9 +1856,21 @@ export const createRuntimeExecutors = (
             type: 'tool_start',
           });
 
+          // Track tool call count for hooks (before try so catch can access)
+          const batchToolKey = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
+          const batchCallIndex = (toolCallCounts.get(batchToolKey) ?? 0) + 1;
+          toolCallCounts.set(batchToolKey, batchCallIndex);
+
+          let batchParsedArgs: Record<string, any> = {};
+          try {
+            batchParsedArgs =
+              typeof chatToolPayload.arguments === 'string'
+                ? JSON.parse(chatToolPayload.arguments)
+                : (chatToolPayload.arguments ?? {});
+          } catch {}
+
           try {
             log(`[${operationLogId}] Executing tool ${toolName} ...`);
-            // Build effective manifest map (operation + step-level activations)
             const batchManifestMap = {
               ...(state.operationToolSet?.manifestMap ?? state.toolManifestMap),
               ...Object.fromEntries(
@@ -1873,19 +1885,6 @@ export const createRuntimeExecutors = (
             const canDispatchToClient =
               chatToolPayload.executor === 'client' &&
               typeof streamManager.sendToolExecute === 'function';
-
-            // Track tool call count for hooks
-            const batchToolKey = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
-            const batchCallIndex = (toolCallCounts.get(batchToolKey) ?? 0) + 1;
-            toolCallCounts.set(batchToolKey, batchCallIndex);
-
-            let batchParsedArgs: Record<string, any> = {};
-            try {
-              batchParsedArgs =
-                typeof chatToolPayload.arguments === 'string'
-                  ? JSON.parse(chatToolPayload.arguments)
-                  : (chatToolPayload.arguments ?? {});
-            } catch {}
 
             // Dispatch beforeToolCall hook (may return mock result)
             let batchToolCallMocked = false;

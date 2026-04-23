@@ -3558,8 +3558,6 @@ describe('RuntimeExecutors', () => {
 
     describe('call_tool hooks', () => {
       it('should dispatch beforeToolCall and afterToolCall hooks', async () => {
-        const beforeHandler = vi.fn();
-        const afterHandler = vi.fn();
         const mockDispatcher = {
           dispatch: vi.fn().mockResolvedValue(undefined),
           dispatchBeforeToolCall: vi.fn().mockResolvedValue(null),
@@ -3601,7 +3599,7 @@ describe('RuntimeExecutors', () => {
         const ctxWithHooks = { ...ctx, hookDispatcher: mockDispatcher as any };
         const executors = createRuntimeExecutors(ctxWithHooks);
 
-        const result = await executors.call_tool!(createToolInstruction(), createToolState());
+        await executors.call_tool!(createToolInstruction(), createToolState());
 
         // Real tool should NOT have been called
         expect(mockToolExecutionService.executeTool).not.toHaveBeenCalled();
@@ -3734,7 +3732,13 @@ describe('RuntimeExecutors', () => {
 
         const instruction = {
           pendingToolsCalling: [
-            { apiName: 'post_tweet', id: 'tc-1', identifier: 'twitter', type: 'default' },
+            {
+              apiName: 'post_tweet',
+              arguments: '{}',
+              id: 'tc-1',
+              identifier: 'twitter',
+              type: 'default',
+            },
           ],
           type: 'request_human_approve' as const,
         };
